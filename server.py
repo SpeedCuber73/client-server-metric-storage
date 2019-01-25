@@ -54,14 +54,16 @@ class Storage:
 
     def parse_get(self, query):
         mask = query[4:len(query) - 1]  # delete get and \n
+
+        answer = "ok\n"
         if mask == '':
             return "error\nwrong command\n\n"
 
-        answer = "ok\n"
         if mask == "*":
             for key in self._storage:
                 answer += self.get(key)
-        else:
+
+        elif mask in self._storage.keys():
             answer += self.get(mask)
 
         answer += "\n"
@@ -76,41 +78,46 @@ class Storage:
         return string
 
 
-def run_server(host, port):
+class ClientServerProtocol(asyncio.Protocol):
+    def connection_made(self, transport):
+        self.transport = transport
 
+    def data_received(self, data):
+        mes = data.decode()
+        resp = self.process_data(mes)
+        self.transport.write(resp.encode())
+
+    @staticmethod
+    def process_data(query):
+        if query.startswith("put") and query.endswith("\n"):
+            answer = Storage.get_instance().parse_put(query)
+
+        elif query.startswith("get") and query.endswith("\n"):
+            answer = Storage.get_instance().parse_get(query)
+
+        else:
+            answer = "error\nwrong command\n\n"
+
+        return answer
+
+
+def run_server(host, port):
     loop = asyncio.get_event_loop()
-    coro = asyncio.start_server(handle_request, host, port, loop=loop)
+    coro = loop.create_server(
+        ClientServerProtocol,
+        host, port
+    )
+
     server = loop.run_until_complete(coro)
+
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         pass
+
     server.close()
     loop.run_until_complete(server.wait_closed())
     loop.close()
-
-
-async def handle_request(reader, writer):
-
-    data = await reader.read(1024)
-    message = data.decode()
-    answer = parse_input(message)
-    print("answer:", answer)
-    writer.write(answer.encode())
-    writer.close()
-
-
-def parse_input(query):
-    if query.startswith("put") and query.endswith("\n"):
-        answer = Storage.get_instance().parse_put(query)
-
-    elif query.startswith("get") and query.endswith("\n"):
-        answer = Storage.get_instance().parse_get(query)
-
-    else:
-        answer = "error\nwrong command\n\n"
-
-    return answer
 
 
 if __name__ == "__main__":

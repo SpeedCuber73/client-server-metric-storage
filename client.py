@@ -23,8 +23,8 @@ class Client:
 
     def put(self, metric_name, metric_value, timestamp=int(time.time())):
         put_query = f"put {metric_name} {metric_value} {timestamp}\n"
-        print(put_query)
         result = self.do_request(put_query)
+        print("result: ", result)
         if result != "ok\n\n":
             raise ClientError
 
@@ -61,3 +61,9 @@ class Client:
                 result_dict[elements[0]] = [(int(elements[2]), float(elements[1]))]
 
         return result_dict
+
+
+client = Client('127.0.0.1', 8888)
+client.put("cpu", 2300, timestamp=10)
+client.put("cpu", 2100, timestamp=13)
+client.get("*")
